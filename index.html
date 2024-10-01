@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {display: flex;flex-direction: column;align-items: center;height: 100vh;margin: 0;background-color: #f0f0f0;}
+        canvas {border: 1px solid black;}
+        .controls {display: flex;flex-direction: column;align-items: center;margin: 10px;}
+        .controls-row {display: flex;}
+        .controls button {margin: 5px;padding: 10px;}
+        .player {width: 80%; height: 80%; background-color: blue;}
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <div class="controls-row">
+            <button id="up">위</button>
+        </div>
+        <div class="controls-row">
+            <button id="left">왼쪽</button>
+            <button id="down">아래</button>
+            <button id="right">오른쪽</button>
+        </div>
+    </div>
+    <canvas id="mazeCanvas" width="560" height="480"></canvas>
+    <script>
+        const canvas = document.getElementById("mazeCanvas");
+        const ctx = canvas.getContext("2d");
+        const cellSize = 20;
+        const cols = Math.floor(canvas.width / cellSize);
+        const rows = Math.floor(canvas.height / cellSize);
+        const maze = [];
+        let current;
+        const stack = [];
+        let player = { x: 0, y: 0 };
+        const goal = { x: cols - 1, y: rows - 1 };
+
+        class Cell {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.walls = [true, true, true, true]; // top, right, bottom, left
+                this.visited = false;
+            }
+
+            draw() {
+                const x = this.x * cellSize;
+                const y = this.y * cellSize;
+                ctx.strokeStyle = "black";
+                if (this.walls[0]) ctx.strokeRect(x, y, cellSize, 1); // top
+                if (this.walls[1]) ctx.strokeRect(x + cellSize, y, 1, cellSize); // right
+                if (this.walls[2]) ctx.strokeRect(x, y + cellSize, cellSize, 1); // bottom
+                if (this.walls[3]) ctx.strokeRect(x, y, 1, cellSize); // left
+
+                if (this.visited) {
+                    ctx.fillStyle = "white";
+                    ctx.fillRect(x, y, cellSize, cellSize);
+                }
+            }
+
+            checkNeighbors() {
+                const neighbors = [];
+                const top = maze[index(this.x, this.y - 1)];
+                const right = maze[index(this.x + 1, this.y)];
+                const bottom = maze[index(this.x, this.y + 1)];
+                const left = maze[index(this.x - 1, this.y)];
+
+                if (top && !top.visited) neighbors.push(top);
+                if (right && !right.visited) neighbors.push(right);
+                if (bottom && !bottom.visited) neighbors.push(bottom);
+                if (left && !left.visited) neighbors.push(left);
+
+                if (neighbors.length > 0) {
+                    const r = Math.floor(Math.random() * neighbors.length);
+                    return neighbors[r];
+                } else {
+                    return undefined;
+                }
+            }
+        }
+
+        function index(x, y) {
+            if (x < 0 || y < 0 || x >= cols || y >= rows) {
+                return -1;
+            }
+            return x + y * cols;
+        }
+
+        function setup() {
+            for (let y = 0; y < rows; y++) {
+                for (let x = 0; x < cols; x++) {
+                    const cell = new Cell(x, y);
+                    maze.push(cell);
+                }
+            }
+            current = maze[0];
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            maze.forEach(cell => cell.draw());
+
+            current.visited = true;
+            const next = current.checkNeighbors();
+            if (next) {
+                next.visited = true;
+                stack.push(current);
+                removeWalls(current, next);
+                current = next;
+            } else if (stack.length > 0) {
+                current = stack.pop();
+            }
+
+            drawPlayer();
+            drawGoal();
+        }
+
+        function removeWalls(a, b) {
+            const x = a.x - b.x;
+            if (x === 1) {
+                a.walls[3] = false;
+                b.walls[1] = false;
+            } else if (x === -1) {
+                a.walls[1] = false;
+                b.walls[3] = false;
+            }
+            const y = a.y - b.y;
+            if (y === 1) {
+                a.walls[0] = false;
+                b.walls[2] = false;
+            } else if (y === -1) {
+                a.walls[2] = false;
+                b.walls[0] = false;
+            }
+        }
+
+        function drawPlayer() {
+            ctx.fillStyle = "blue";
+            const playerSize = cellSize * 0.8;
+            const offset = (cellSize - playerSize) / 2;
+            ctx.fillRect(player.x * cellSize + offset, player.y * cellSize + offset, playerSize, playerSize);
+        }
+
+        function drawGoal() {
+            ctx.fillStyle = "green";
+            ctx.fillRect(goal.x * cellSize, goal.y * cellSize, cellSize, cellSize);
+        }
+
+        function movePlayer(direction) {
+            switch (direction) {
+                case "left":
+                    if (player.x > 0 && !maze[index(player.x, player.y)].walls[3]) player.x--;
+                    break;
+                case "right":
+                    if (player.x < cols - 1 && !maze[index(player.x, player.y)].walls[1]) player.x++;
+                    break;
+                case "up":
+                    if (player.y > 0 && !maze[index(player.x, player.y)].walls[0]) player.y--;
+                    break;
+                case "down":
+                    if (player.y < rows - 1 && !maze[index(player.x, player.y)].walls[2]) player.y++;
+                    break;
+            }
+            if (player.x === goal.x && player.y === goal.y) {
+                alert("성공!");
+                player = { x: 0, y: 0 };
+            }
+        }
+
+        document.getElementById("left").addEventListener("click", () => movePlayer("left"));
+        document.getElementById("right").addEventListener("click", () => movePlayer("right"));
+        document.getElementById("up").addEventListener("click", () => movePlayer("up"));
+        document.getElementById("down").addEventListener("click", () => movePlayer("down"));
+
+        setup();
+        setInterval(draw, 0.1); // 미로 생성 속도 증가
+    </script>
+</body>
+</html>
